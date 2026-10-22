@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>赔率数据源选型与扫货系统架构建议 · AI打水</title>
+<style>
+:root{
+  --bg:#fbfbf9;
+  --surface:#ffffff;
+  --ink:#1b1b19;
+  --ink-2:#4a4a46;
+  --ink-3:#78786f;
+  --line:#e6e5df;
+  --line-2:#d5d4cc;
+  --accent:#185fa5;
+  --accent-soft:#e6f1fb;
+  --warn:#854f0b;
+  --warn-soft:#faeeda;
+  --danger:#a32d2d;
+  --danger-soft:#fcebeb;
+  --ok:#3b6d11;
+  --ok-soft:#eaf3de;
+  --code-bg:#f4f4f0;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+.progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--accent);z-index:99;transition:width .1s linear}
+
+.hero{border-bottom:1px solid var(--line);background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+.hero .wrap{padding-top:64px;padding-bottom:52px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;margin-bottom:18px;font-weight:600}
+.hero h1{font-size:40px;line-height:1.25;font-weight:650;letter-spacing:-.02em;margin-bottom:20px}
+.lede{font-size:16px;color:var(--ink-2);max-width:720px;line-height:1.8}
+.meta{display:flex;align-items:center;gap:12px;margin-top:28px;font-size:13px;color:var(--ink-3);flex-wrap:wrap}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent)}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.danger{background:var(--danger-soft);color:var(--danger)}
+
+.layout{display:grid;grid-template-columns:216px 1fr;gap:56px;align-items:start;padding-top:48px;padding-bottom:96px}
+.toc{position:sticky;top:32px;font-size:13px}
+.toc-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px;font-weight:600}
+.toc ol{list-style:none;display:flex;flex-direction:column;gap:2px}
+.toc a{display:block;padding:6px 10px;border-left:2px solid transparent;color:var(--ink-2);text-decoration:none;border-radius:0 6px 6px 0;transition:.15s}
+.toc a:hover{color:var(--accent);background:var(--accent-soft)}
+.toc a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600}
+
+article{min-width:0}
+section{margin-bottom:72px;scroll-margin-top:32px}
+h2{font-size:24px;font-weight:650;letter-spacing:-.01em;margin-bottom:8px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+h2 .num{color:var(--ink-3);font-weight:400;margin-right:10px;font-variant-numeric:tabular-nums}
+h3{font-size:17px;font-weight:650;margin:32px 0 12px}
+h4{font-size:15px;font-weight:650;margin:22px 0 8px;color:var(--ink-2)}
+p{margin-bottom:14px;color:var(--ink-2)}
+p strong,li strong{color:var(--ink);font-weight:650}
+a{color:var(--accent)}
+ul,ol{margin:0 0 16px 0;padding-left:22px;color:var(--ink-2)}
+li{margin-bottom:7px}
+li::marker{color:var(--ink-3)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;background:var(--code-bg);padding:2px 6px;border-radius:5px;color:var(--ink)}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:var(--radius);padding:20px;overflow-x:auto;margin-bottom:18px}
+pre code{background:none;padding:0;font-size:12.5px;line-height:1.7;color:var(--ink-2)}
+
+.table-wrap{overflow-x:auto;margin-bottom:20px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-weight:650;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);padding:12px 16px;background:#f7f7f3;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:13px 16px;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td strong{color:var(--ink)}
+tbody tr:hover{background:#fcfcfa}
+.pick{background:var(--accent-soft)}
+.pick td{color:var(--ink)}
+.pick td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+
+.callout{border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;border:1px solid;font-size:14px}
+.callout p:last-child{margin-bottom:0}
+.callout .label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:650;margin-bottom:6px}
+.callout.info{background:var(--accent-soft);border-color:#b5d4f4;color:#0c447c}
+.callout.info .label{color:var(--accent)}
+.callout.warn{background:var(--warn-soft);border-color:#fac775;color:#633806}
+.callout.warn .label{color:var(--warn)}
+.callout.danger{background:var(--danger-soft);border-color:#f7c1c1;color:#791f1f}
+.callout.danger .label{color:var(--danger)}
+.callout.ok{background:var(--ok-soft);border-color:#c0dd97;color:#27500a}
+.callout.ok .label{color:var(--ok)}
+.callout p{color:inherit}
+
+.figure{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+.figure svg{display:block;width:100%;max-width:560px;margin:0 auto;height:auto}
+.figcap{font-size:12.5px;color:var(--ink-3);text-align:center;margin-top:12px}
+
+.answer{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius);padding:24px 26px;margin-bottom:24px}
+.answer .q{font-size:14px;color:var(--ink-3);margin-bottom:8px}
+.answer .a{font-size:17px;font-weight:650;color:var(--ink);line-height:1.6}
+
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding-left:44px;margin-bottom:22px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:650;display:flex;align-items:center;justify-content:center}
+.steps li::marker{content:none}
+.steps .st{font-weight:650;color:var(--ink);display:block;margin-bottom:2px}
+
+footer{border-top:1px solid var(--line);background:var(--surface)}
+footer .wrap{padding-top:36px;padding-bottom:48px;font-size:13px;color:var(--ink-3)}
+footer p{margin-bottom:8px;color:var(--ink-3)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0}
+  .toc{display:none}
+  .hero h1{font-size:30px}
+  .wrap{padding:0 20px}
+}
+@media print{
+  .toc,.progress{display:none}
+  .layout{grid-template-columns:1fr;padding-top:0}
+  body{font-size:11.5pt}
+  section{page-break-inside:avoid}
+  .table-wrap,pre{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">AI打水 · 技术调研</div>
+    <h1>赔率数据源选型<br>与扫货系统架构建议</h1>
+    <p class="lede">回答三个问题：数据源到底买哪个、扫货系统怎么搭才快、GitHub 上有哪些能直接抄的作业。基于 6 张调研截图与 2026-10-22 的补充调研整理。</p>
+    <div class="meta">
+      <span class="badge">v1.0</span>
+      <span class="badge ok">14 个开源项目</span>
+      <span>2026-10-23</span>
+      <span>·</span>
+      <span>结论：数据必须买，代码可以白拿</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap layout">
+  <aside class="toc">
+    <div class="toc-title">目录</div>
+    <ol id="toc-list">
+      <li><a href="#cost">0 · 数据要买吗</a></li>
+      <li><a href="#pick">1 · 用哪个数据源</a></li>
+      <li><a href="#arch">2 · 扫货架构设计</a></li>
+      <li><a href="#oss">3 · GitHub 开源项目</a></li>
+      <li><a href="#road">4 · 落地路线</a></li>
+      <li><a href="#legal">5 · 合规提示</a></li>
+    </ol>
+  </aside>
+
+  <article>
+
+    <section id="cost">
+      <h2><span class="num">0</span>数据这块：开源的是代码，不是数据</h2>
+      <div class="answer">
+        <div class="q">项目是开源的，但数据还是要买的对吧？</div>
+        <div class="a">对。而且是这套系统里唯一必须持续付费、且无法自建的部分。</div>
+      </div>
+      <p>GitHub 上那些套利项目，开源的都只是<strong>框架和逻辑</strong>：怎么取数、怎么匹配同一场赛事、怎么算套利、怎么分配注额、怎么推送。它们没有一个自带数据——每个项目打开 <code>.env</code> 第一件事就是让你填 API key。</p>
+      <p>原因是赔率流本身是一门生意：</p>
+      <ul>
+        <li><strong>实时赔率是商业数据。</strong>平博（Pinnacle）这类 sharp 庄家的赔率变动就是市场信号，数据商靠转售它们赚钱，不可能免费放出来。</li>
+        <li><strong>官方渠道已经关死。</strong>平博 2025-07-23 起关闭公开 API 注册，只剩商业协议客户。想拿平博数据，要么买第三方数据商，要么走 PS3838 白标 + broker 开户。</li>
+        <li><strong>免费额度只够测试。</strong>见下表，所有免费档的配额连盯一场比赛都不够，更别说全天候扫货。</li>
+      </ul>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>获取方式</th><th>免费额度</th><th>能否支撑实盘扫货</th><th>问题</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>The Odds API</strong></td>
+              <td>约 500 次/月（以官网为准）</td>
+              <td><span class="badge danger">不能</span></td>
+              <td>REST 轮询，60 秒间隔起步；免费档只够验证逻辑</td>
+            </tr>
+            <tr>
+              <td><strong>OddsPapi</strong></td>
+              <td>250 次/月，含免费历史赔率</td>
+              <td><span class="badge danger">不能</span></td>
+              <td>同样只够开发调试；实时需买 WebSocket 档</td>
+            </tr>
+            <tr>
+              <td><strong>Pinnwire</strong></td>
+              <td>demo key：20 req/min、100 req/天</td>
+              <td><span class="badge warn">仅验证延迟</span></td>
+              <td>免费永久，但每天 100 次，跑几个小时就没了</td>
+            </tr>
+            <tr>
+              <td><strong>PinnAPI</strong></td>
+              <td>无长期免费档</td>
+              <td><span class="badge ok">能</span></td>
+              <td>$100–300/月，按用途计费</td>
+            </tr>
+            <tr>
+              <td><strong>自己爬平博网页</strong></td>
+              <td>0 元</td>
+              <td><span class="badge danger">不推荐</span></td>
+              <td>反爬强、延迟不可控（秒级）、封 IP、违反平台 ToS</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">成本结构要认清</span>
+        <p>这套系统的钱分两块：<strong>代码成本 ≈ 0</strong>（开源项目随便改），<strong>数据成本 = 固定月费</strong>（$89–500/月）。想省钱只能砍数据源等级，砍不了这一项。反过来，先花 $89–100 买最低档验证信号质量，比一开始就上 $500 的聚合套餐理性得多。</p>
+      </div>
+
+      <p>顺带说清另一件事：<strong>数据商卖的只是数据，不是下单能力。</strong>买了 PinnAPI，你还是得自己去平博页面点。要实现全自动下单，得走 PS3838 API（平博白标，经 broker 开户），那是另一条独立的账户通道，不是"再买个 API 套餐"能解决的。</p>
+    </section>
+
+    <section id="pick">
+      <h2><span class="num">1</span>用哪个数据源：分场景，没有一劳永逸</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>场景</th><th>推荐方案</th><th>延迟</th><th>价格</th><th>核心理由</th></tr>
+          </thead>
+          <tbody>
+            <tr class="pick">
+              <td><strong>只打平博、手动扫货</strong><br><span style="font-size:12px;color:#78786f">截图中的首选路径</span></td>
+              <td><strong>PinnAPI</strong>（专项平博 WebSocket / SSE）</td>
+              <td>20–50ms</td>
+              <td>$100–300/月</td>
+              <td>单一数据源零噪音；SSE <code>odds-drop</code> 端点支持服务端阈值过滤（<code>min_drop=N</code>），客户端只收"值得出手"的变动</td>
+            </tr>
+            <tr>
+              <td><strong>预算优先、同样只要平博数据</strong></td>
+              <td><strong>Pinnwire</strong></td>
+              <td>未公开（宣称极速）</td>
+              <td><strong>$89/月</strong> flat</td>
+              <td>比 PinnAPI 便宜；REST + WebSocket + SSE 三种接入；每个赔率自带 no-vig 公允价（nvp）；13 个体育项目；有免费 demo key 先测</td>
+            </tr>
+            <tr>
+              <td><strong>跨平台套利 / 看差价 Value</strong></td>
+              <td><strong>OddsPapi</strong> 或 <strong>The Odds API</strong> 高阶 WebSocket 版</td>
+              <td>较快</td>
+              <td>$200–500/月</td>
+              <td>聚合 350+ 家博彩公司（含 Pinnacle、Bet365）；可直接输出差价与 Value；OddsPapi 免费档含历史赔率</td>
+            </tr>
+            <tr>
+              <td><strong>要全自动下单（无人值守）</strong></td>
+              <td><strong>PS3838 API</strong>（平博白标，broker 开户）</td>
+              <td>官方同源</td>
+              <td>无 API 费，账户模式</td>
+              <td>唯一能对平博真实下单的官方通道；<code>api.ps3838.com</code> 与已关闭的平博官方 API 端点完全一致</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>三个截图调研时没有覆盖到的信息</h3>
+      <ol class="steps">
+        <li>
+          <span class="st">平博官方 API 已于 2025-07-23 关闭公开注册</span>
+          不再有开放的 developer signup，官方渠道只剩商业数据协议客户。平博数据的现实获取路径只剩两条：第三方数据商（PinnAPI / Pinnwire），或 PS3838（平博自家白标，经 broker 如 Asianconnect 开户，API 同源同端点）。
+        </li>
+        <li>
+          <span class="st">Pinnwire 是比 PinnAPI 更便宜的平博数据备选</span>
+          $89/月 vs $100–300/月，且提供免注册的 demo key（<code>key=demo</code>），可以先用它验证端到端延迟，再决定要不要付 PinnAPI 的钱。
+        </li>
+        <li>
+          <span class="st">Goalserve / Sportradar 只卖赛事数据，不卖赔率</span>
+          这两家是比分、赛程、球员统计的老牌供应商。如果你的系统只需要"赛事框架 + 平博赔率"，用平博专线 + 免费赛程 API 就够，不必买它们的套餐。
+        </li>
+      </ol>
+
+      <h3>避坑</h3>
+      <div class="callout danger">
+        <span class="label">付费前必查</span>
+        <p><strong>不要买 OddsJam API 等美制聚合商。</strong>宣传极快，但不含 Pinnacle 和 Bet365 的核心盘口。付款前必须让对方提供支持的博彩公司列表（Bookmakers List），逐家核对。</p>
+      </div>
+      <div class="callout info">
+        <span class="label">延迟的真实算法</span>
+        <p>所有"扫货"速度都按<strong>端到端</strong>计：数据商节点 → 你的服务器 → 通知到达手机 → 你完成点击。数据商的 20–50ms 只是第一段，通知链路（Telegram / WebSocket）通常再要 100–500ms，手动点击又是秒级。<strong>想真正"快"，最终都得走到自动下单。</strong></p>
+      </div>
+    </section>
+
+    <section id="arch">
+      <h2><span class="num">2</span>扫货系统架构：六层</h2>
+      <p>截图里 Gemini 的回答在"二、扫货系统的核心架构设计建议"处被截断。以下是补全版本，并融合了本次调研中开源项目验证过的做法。</p>
+
+      <div class="figure">
+        <svg viewBox="0 0 680 580" role="img" aria-label="扫货系统六层架构图">
+          <title>扫货系统六层架构图</title>
+          <desc>从 PinnAPI SSE 数据接入，经信号过滤、EV/Kelly 决策，到 Telegram 告警与下单的完整链路</desc>
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="#5f5e5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+          <rect x="220" y="40" width="240" height="56" rx="8" fill="#e6f1fb" stroke="#185fa5" stroke-width="1"/>
+          <text x="340" y="62" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0c447c">① 接入层 · PinnAPI SSE 推流</text>
+          <text x="340" y="82" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185fa5">min_drop 服务端阈值过滤</text>
+
+          <path d="M340 96 L340 150" fill="none" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ar)"/>
+
+          <rect x="220" y="156" width="240" height="56" rx="8" fill="#e6f1fb" stroke="#185fa5" stroke-width="1"/>
+          <text x="340" y="178" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0c447c">② 信号层 · 过滤</text>
+          <text x="340" y="198" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185fa5">去重冷却 · 回弹复核</text>
+
+          <path d="M340 212 L340 266" fill="none" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ar)"/>
+
+          <rect x="220" y="272" width="240" height="56" rx="8" fill="#e6f1fb" stroke="#185fa5" stroke-width="1"/>
+          <text x="340" y="294" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0c447c">③ 决策层 · EV + Kelly</text>
+          <text x="340" y="314" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185fa5">no-vig 折算 · 30% Kelly 注额</text>
+
+          <path d="M340 328 L340 382" fill="none" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ar)"/>
+
+          <rect x="220" y="388" width="240" height="56" rx="8" fill="#e6f1fb" stroke="#185fa5" stroke-width="1"/>
+          <text x="340" y="410" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0c447c">④ 执行层 · Telegram 告警</text>
+          <text x="340" y="430" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185fa5">赛事 / 赔率 / 注额 · 投注页深链接</text>
+
+          <path d="M340 444 L340 498" fill="none" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ar)"/>
+
+          <rect x="220" y="504" width="240" height="56" rx="8" fill="#faece7" stroke="#993c1d" stroke-width="1"/>
+          <text x="340" y="526" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#712b13">⑤ 出手 · 一键下单</text>
+          <text x="340" y="546" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#993c1d">手工点击 / PS3838 API 自动投注</text>
+
+          <rect x="56" y="283" width="140" height="44" rx="8" fill="#f1efe8" stroke="#5f5e5a" stroke-width="1"/>
+          <text x="126" y="297" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="600" fill="#444441">SQLite 快照</text>
+          <text x="126" y="315" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5f5e5a">回测与 edge 统计</text>
+
+          <path d="M196 297 L220 184" fill="none" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="4 3"/>
+          <path d="M196 305 L220 300" fill="none" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="4 3"/>
+        </svg>
+        <div class="figcap">信号主链路 + 旁路数据落库。风控层贯穿全程，图中省略。</div>
+      </div>
+
+      <h3>① 接入层：能用推就别用拉</h3>
+      <ul>
+        <li><strong>首选 SSE</strong>（Server-Sent Events）：比 WebSocket 简单、断线自动重连、穿透 CDN 友好。PinnAPI 的 <code>odds-drop</code> 就是 SSE，<code>min_drop=7</code> 表示只推送跌幅 ≥7% 的变动，过滤在服务端完成，客户端代码极薄。</li>
+        <li><strong>如果只能 REST</strong>（免费档），轮询间隔不低于 90 秒，且只在开赛前 1–2 小时窗口轮询——赔率变动最密集的时段才值得花配额。</li>
+        <li><strong>多数据源时各自独立长连接</strong>，一个源挂掉不影响其他源。</li>
+      </ul>
+
+      <h3>② 信号层：少即是多</h3>
+      <ul>
+        <li><strong>阈值过滤放服务端</strong>，本地只做轻量二次确认。</li>
+        <li><strong>去重与冷却</strong>：同一赛事 + 同一市场（如 1X2 主胜）的信号 N 秒内只报一次，防止连续小幅跳动刷屏。</li>
+        <li><strong>回跳过滤</strong>：prematch 流用 <code>recheck=N</code> 参数，让数据商对每个 alert 持留 N 秒复核，过滤"假跌破"。</li>
+        <li><strong>按项目分频道</strong>：足球 / 网球 / 篮球各一个 Telegram 频道，避免互相干扰。</li>
+      </ul>
+
+      <h3>③ 决策层：信号里直接带答案</h3>
+      <ul>
+        <li>用数据商的 no-vig 公允价（Pinnwire 的 nvp），或本地用 power / shin 方法 devig，算出真实概率。</li>
+        <li><code>EV = 目标盘赔率 × 真实概率 − 1</code>，EV &gt; 0 才推送。</li>
+        <li>注额用分数 Kelly，开源项目通用做法是 30% 全 Kelly，控制方差。</li>
+        <li><strong>消息里直接给出赛事、市场、当前赔率、建议注额、预期收益</strong>——手工扫货时，让人现算就是浪费钱。</li>
+      </ul>
+
+      <h3>④ 执行层：让"点到"这一步最短</h3>
+      <ul>
+        <li>Telegram 消息内嵌平博投注页深链接（带 <code>eventId</code> / <code>lineId</code>），点击直达投注单，赔率已锁在链接参数里。</li>
+        <li>桌面端加声音 + 系统弹窗（架构参考 PROPPR 的多 bot 分发）。</li>
+        <li>浏览器保持平博登录态；注额预设（100 / 500 / 1000）减少输入。</li>
+        <li><strong>进阶（真正的速度）</strong>：<code>ps3838api</code> 提供完整的 Python 封装——查余额、拉 fixtures/odds、<code>place_straight_bet</code> 下单、<code>get_bets</code> 查状态，可直接当执行层 SDK。</li>
+      </ul>
+
+      <h3>⑤ 数据层与风控层</h3>
+      <ul>
+        <li><strong>SQLite 快照</strong>：每条信号 + 当时赔率落一张表（时间、赛事、市场、from/to、EV、注额、是否出手、赛后结果）。两周就能统计出哪类信号真能打到、实际 edge 多少、哪些联赛值得盯。</li>
+        <li><strong>限额跟踪</strong>：平博对盈利账户会限额，系统要记录每个账号各市场的最大可下注额，超限信号直接丢弃。</li>
+        <li><strong>频率控制与熔断</strong>：每小时出手上限，防止信号风暴下重仓；接口连续报错或赔率明显异常（如 1.01）时自动暂停告警。</li>
+      </ul>
+
+      <h3>最小可行组合（MVP，一周可落地）</h3>
+      <pre><code>PinnAPI SSE（min_drop=5）
+  → Python asyncio 消费者
+    → 本地 EV + 30% Kelly 计算
+      → Telegram Bot 消息（赛事 / 赔率 / 建议注额 / 深链接）
+        → SQLite 快照落库</code></pre>
+      <p>只依赖一个 API key 和一个 Telegram bot token，代码量约 300–500 行。验证信号质量后再升级 WebSocket 全量流 + PS3838 自动下单。</p>
+    </section>
+
+    <section id="oss">
+      <h2><span class="num">3</span>GitHub 开源项目：能直接抄的作业</h2>
+
+      <h3>A · 完整套利 / 扫货系统</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>项目</th><th>语言</th><th>是什么</th><th>值得抄什么</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://github.com/danielcardeenas/surebet" target="_blank" rel="noopener"><strong>danielcardeenas/surebet</strong></a></td>
+              <td>TypeScript</td>
+              <td>实时套利扫描 + 下单，MIT</td>
+              <td><strong>架构最优雅</strong>：Retriever（取数）/ Arber（策略）接口分离，websocket / API / Selenium 取数即插即用；fuzzball 模糊匹配跨平台同一赛事</td>
+            </tr>
+            <tr class="pick">
+              <td><a href="https://github.com/Akinlua/sportybet" target="_blank" rel="noopener"><strong>Akinlua/sportybet</strong></a><br><span style="font-size:12px;color:#78786f">BetAlert</span></td>
+              <td>Python</td>
+              <td><strong>监控平博赔率 → 自动在 Bet9ja 下注</strong>，EV + Kelly</td>
+              <td><strong>和本项目模式最接近</strong>：平博做 sharp 信号源、soft 平台执行；power 法 devig、30% Kelly、Selenium 自动投注全流程</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/Jayzinq/PROPPR" target="_blank" rel="noopener"><strong>Jayzinq/PROPPR</strong></a></td>
+              <td>Python</td>
+              <td>微服务级赔率情报平台：套利、EV 告警、WebSocket 更新、Telegram 分发</td>
+              <td>生产级架构：WebSocketUpdater 服务、MongoDB 统一数据层、多 bot 分频道分发</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/harvey-allen/arbitrage-sports-betting" target="_blank" rel="noopener"><strong>harvey-allen/arbitrage-sports-betting</strong></a></td>
+              <td>Python</td>
+              <td>基于 The Odds API 的套利检测 + Telegram 通知 + Docker</td>
+              <td>干净适合入门：套利数学（注额分配 / ROI）、策略基类、容器化部署</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>B · 赔率监控 / 变动告警</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>项目</th><th>语言</th><th>是什么</th><th>值得抄什么</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://github.com/SteveParadox/Api-bet-monitor" target="_blank" rel="noopener"><strong>SteveParadox/Api-bet-monitor</strong></a></td>
+              <td>Python</td>
+              <td>FastAPI + SQLAlchemy 赔率异常监控：平局赔率 30 分钟跌 ≥20%、总进球线移动 ≥1.0 即告警</td>
+              <td>异常检测规则设计、赔率时间线存库、Telegram / webhook 告警、scheduler 架构</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/coss1333/Surebet-notifier" target="_blank" rel="noopener"><strong>coss1333/Surebet-notifier</strong></a></td>
+              <td>Python</td>
+              <td>轻量 surebet 通知 bot：轮询赔率，Σ(1/odds) &lt; 1 即推 Telegram</td>
+              <td>最小实现，几百行跑通全流程；2-way / 1X2 判断、edge 阈值、去重</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/TessaRichardson/SureBetsBot" target="_blank" rel="noopener"><strong>TessaRichardson/SureBetsBot</strong></a></td>
+              <td>Python</td>
+              <td>套利检测 + Kelly 注额 + Streamlit 看板</td>
+              <td>本地 dashboard 可直接用：bankroll 曲线、实时 arbs、参数可调</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/BrandonBell2025/PinnacleScrape" target="_blank" rel="noopener"><strong>BrandonBell2025/PinnacleScrape</strong></a></td>
+              <td>Python</td>
+              <td>平博赔率爬虫（NFL 系列赛 spread）存 CSV</td>
+              <td>无 API key 时的兜底取数方案（注意平台 ToS 风险）</td>
+            </tr>
+            <tr>
+              <td><a href="https://oddspapi.io/blog/odds-comparison-dashboard-python-streamlit" target="_blank" rel="noopener"><strong>OddsPapi 官方示例</strong></a></td>
+              <td>Python</td>
+              <td>Streamlit 赔率对比看板 + Steam Move Detector 教程</td>
+              <td>从零搭建的完整教程：fetch → best price → detect_arb → alert，含 Telegram / Discord 推送</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>C · 平博 / PS3838 API 客户端与自动下单</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>项目</th><th>是什么</th><th>值得抄什么</th></tr>
+          </thead>
+          <tbody>
+            <tr class="pick">
+              <td><a href="https://github.com/iliyasone/ps3838api" target="_blank" rel="noopener"><strong>iliyasone/ps3838api</strong></a></td>
+              <td>平博 PS3838 API 的轻量 Python 封装</td>
+              <td><strong>自动下单的唯一现实通道</strong>：<code>PinnacleClient</code> 拉 fixtures/odds、<code>place_straight_bet</code> 下单、<code>get_bets</code> 查状态；支持 V4 端点；pip 可装</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/bukosabino/hello-world-pinnacle-bet-api" target="_blank" rel="noopener"><strong>hello-world-pinnacle-bet-api</strong></a></td>
+              <td>平博 API 自动投注策略 Hello World</td>
+              <td>自动下注策略的最小骨架：赛事过滤 → 赔率判断 → 下单 → 结果落 CSV</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/chrisgillam/polymarket_gambot" target="_blank" rel="noopener"><strong>chrisgillam/polymarket_gambot</strong></a></td>
+              <td>拉平博 sharp 价 → 对比 Polymarket → Kelly 下注</td>
+              <td>跨市场价值投注的完整方法论；FOK 订单防滑点设计</td>
+            </tr>
+            <tr>
+              <td><a href="https://github.com/Pinnwire-Pinnacle-Odds-API" target="_blank" rel="noopener"><strong>Pinnwire-Pinnacle-Odds-API</strong></a></td>
+              <td>Pinnwire 官方 SDK（Node / Python client + MCP server）</td>
+              <td>平博数据 API 的现成客户端，含 no-vig 价计算</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info">
+        <span class="label">怎么选</span>
+        <p><strong>抄架构</strong> → <code>danielcardeenas/surebet</code>；<strong>抄"平博监控 → 执行"闭环</strong> → <code>Akinlua/sportybet</code>；<strong>抄生产级工程</strong> → <code>Jayzinq/PROPPR</code>；<strong>要自动下单</strong> → <code>ps3838api</code> + 上面任一监控项目。</p>
+      </div>
+    </section>
+
+    <section id="road">
+      <h2><span class="num">4</span>落地路线：三步，每步可回退</h2>
+      <ol class="steps">
+        <li>
+          <span class="st">本周 · 验证信号质量</span>
+          买 PinnAPI 月付 → 接 SSE <code>odds-drop</code> → 按 MVP 搭起来 → 手工扫货两周。月付随时可停，这一步风险最低。
+        </li>
+        <li>
+          <span class="st">验证后 · 扩展 Value 检测</span>
+          加 OddsPapi 或 The Odds API WebSocket 档 → 做跨平台差价检测。此时你已经有本地快照数据，能判断多源是否值得那份钱。
+        </li>
+        <li>
+          <span class="st">放大 · 自动化执行</span>
+          Asianconnect 开 broker 户拿 PS3838 API → 用 <code>ps3838api</code> 把执行层改成自动下单 → 风控与限额层跟上。不开户也不影响前两步。
+        </li>
+      </ol>
+    </section>
+
+    <section id="legal">
+      <h2><span class="num">5</span>合规提示</h2>
+      <div class="callout danger">
+        <span class="label">免责声明</span>
+        <p>体育博彩与套利在多数司法辖区（包括中国大陆）属于违法或严格监管行为，且多数平台的服务条款禁止自动化接入。本报告及所列开源项目仅供技术研究与学习参考。实盘前请自行确认所在地法规与平台条款，风险自担。</p>
+      </div>
+    </section>
+
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>AI打水 · 赔率数据源选型与扫货系统架构建议 v1.0</p>
+    <p>整理日期 2026-10-23 · 资料来源：6 张调研截图（Gemini 对话）、各数据商官网文档、GitHub 公开仓库</p>
+    <p>价格与政策随时变动，以服务商官网为准。</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var bar = document.getElementById('progress');
+  function onScroll() {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          var i = sections.indexOf(e.target);
+          if (i > -1) links[i].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    sections.forEach(function (s) { if (s) io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# 项目内部数据
+.workbuddy/
+
+# 依赖
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# 环境与密钥
+.env
+.env.local
+*.key
+credentials*
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 日志与临时文件
+*.log
+*.tmp
+
+# 本地保留的旧版报告（内容已迁移至 report.md）
+/赔率数据源选型与扫货系统架构建议.md
