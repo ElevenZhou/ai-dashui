@@ -15,9 +15,9 @@
 
 ```
 .
-├── index.html                                # 调研报告（单页，带目录与阅读进度）
-├── 赔率数据源选型与扫货系统架构建议.md          # 报告 Markdown 源
-├── docs/screenshots/                         # 原始调研截图（Gemini 对话）
+├── index.html                     # 调研报告（单页，带目录与阅读进度）
+├── report.md                      # 报告 Markdown 源
+├── docs/screenshots/              # 原始调研截图（Gemini 对话）
 └── README.md
 ```
 
