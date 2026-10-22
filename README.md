@@ -2,7 +2,8 @@
 
 体育博彩赔率数据的获取路径、成本结构，以及一套「赔率变动 → 信号过滤 → EV/Kelly → 一键下单」扫货系统的架构建议。
 
-👉 **在线阅读报告：[index.html](./index.html)**（浏览器直接打开即可，支持打印 / 导出 PDF）
+👉 **在线阅读：[https://elevenzhou.github.io/ai-dashui/](https://elevenzhou.github.io/ai-dashui/)**（GitHub Pages）
+👉 本地版：**[index.html](./index.html)**（浏览器直接打开，支持打印 / 导出 PDF）
 
 ## 结论速览
 
