@@ -30,11 +30,34 @@
 cp .env.example .env          # 填入 PINNAPI_KEY
 python scripts/pinnapi_probe.py me                 # 套餐、限额、今日用量
 python scripts/pinnapi_probe.py markets 1 prematch # 足球赛前快照（1足球 2网球 3篮球 11电竞）
+python scripts/pinnapi_probe.py live 3             # 篮球在赛赛事 + 实时比分/节次/剩余时间
 python scripts/pinnapi_probe.py drops --min-drop 8 --min-ev 0.05   # 扫可下手的降赔
 python scripts/pinnapi_probe.py sse                # 探测 SSE 权限
 ```
 
 仅用 Python 标准库，无需 pip install。Trial 档额度 100 请求/天、20/分钟，脚本每次调用算 1 次。
+
+### 赛事数据与实时赛况（实测）
+
+**有，但定位是「有盘口的比赛」，不是独立赛程/赛况 API。**
+
+| 能力 | 有没有 | 实测细节 |
+|---|---|---|
+| 赛程（比赛列表） | ✅ | 足球赛前 **2381 场 / 253 个联赛 / 覆盖 25 天**（2026-10-10 → 11-04）；字段 `event_id / league_name / starts / home / away / parent_id` |
+| 完整盘口树 | ✅ | 每场带全部 period（足球 p0/p1/p8，网球最多 18 个），含 `max` 限额与 `nvp` |
+| 实时比分/时钟 | ✅ 仅 REST | 篮球：`quarter` `time_remaining_in_qtr` `state.home.score` `scoreByQuarter`；网球：`setsWon` `gamesBySet` `points`(0/15/30/40/Ad) `serving` |
+| 足球赛况字段 | 文档声明 | `redCards` `yellowCards` `corners` `match.minutes`（本次未实测到，见下方异常） |
+| drop 流里的赛况 | ⚠️ 部分 | drop 对象自带 `score`（如 `"1:1"`）和 `match_minute`，**但没有完整 state** |
+| 历史赛果 / 历史赔率 | ❌ | 官方 FAQ 明确 No；`/api/drops` 只留 ~3 小时 |
+| 技术统计 / 阵容 / 伤停 | ❌ | `home_stats` 只有 `{"period":0}` 这样的索引，无具体数值 |
+
+三个直接影响架构的点：
+
+1. **`state` 只在 REST**，SSE drop 流里没有 → 想靠赛况判断「进球导致降赔」还是「纯资金面」，必须在收到 drop 后回查 `/kit/v1/details`（多一次请求，且 Trial 100/天扛不住）。
+2. **盘口里的 `meta.home_score / away_score` 会滞后**：实测 tennis 事件 `state` 已有比分而 `meta` 仍是 `null`，两者不要混用。
+3. **无盘口的比赛不出现** —— 想要纯赛程日历（未开盘的远期赛事、无赔率赛事）得另找赛事数据源（API-Football / Sportradar）。
+
+**未解异常（待观察）**：实测时足球 live 在 `/kit/v1/markets` 返回 **0 场**，但 `/api/drops` 里有 8 条足球 live 降赔（Atlas vs Club Leon 1:1 / 第 136 分钟），用 `/kit/v1/details` 查这两场也返回 0 场；同时 `/api/drops` 的 `meta.events_in_store ≈ 15`，正好等于网球 10 + 篮球 5 → **足球 live 没进 live 商店**。结论：足球赛况目前拉不到，需向 `info@pinnapi.com` 确认是否为已知问题。
 
 ### 实测发现：EV 口径的坑
 

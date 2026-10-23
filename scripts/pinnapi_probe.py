@@ -139,6 +139,53 @@ def cmd_drops(a: argparse.Namespace) -> None:
         )
 
 
+def _score_brief(st: dict | None, sport: int) -> str:
+    """把不同运动的 state 压成一行可读赛况。字段名由平博原样透传，所以按运动分别取。"""
+    if not st:
+        return "无 state"
+    m = st.get("match") or {}
+    h = st.get("home") or {}
+    a = st.get("away") or {}
+    if sport == 2 or "setsWon" in h or "setsWon" in a:  # 网球
+        return (
+            f"盘分 {h.get('setsWon')}-{a.get('setsWon')} 局 {h.get('gamesBySet')} / {a.get('gamesBySet')} "
+            f"当前局 {h.get('points')}:{a.get('points')} 第{m.get('set')}盘 "
+            f"发球 {'主' if h.get('serving') else ('客' if a.get('serving') else '—')}"
+        )
+    if "scoreByQuarter" in h or "scoreByQuarter" in a:  # 篮球
+        return f"比分 {h.get('score')}-{a.get('score')} 分节 {h.get('scoreByQuarter')} / {a.get('scoreByQuarter')}"
+    parts = []
+    if h.get("score") is not None or a.get("score") is not None:
+        parts.append(f"比分 {h.get('score')}-{a.get('score')}")
+    for k, label in (("minutes", "分钟"), ("clock", "时钟"), ("state", "状态")):
+        if m.get(k) is not None:
+            parts.append(f"{label} {m.get(k)}")
+    for k, label in (("redCards", "红牌"), ("yellowCards", "黄牌"), ("corners", "角球")):
+        if h.get(k) is not None or a.get(k) is not None:
+            parts.append(f"{label} {h.get(k)}:{a.get(k)}")
+    return " ".join(parts) if parts else json.dumps(st, ensure_ascii=False)[:120]
+
+
+def cmd_live(a: argparse.Namespace) -> None:
+    d = get("/kit/v1/markets", {"sport_id": a.sport, "event_type": "live"})
+    events = d.get("events") or []
+    print(f"{d.get('sport_name')} 滚球: {len(events)} 场 | last_change={d.get('last_change')} stale={d.get('stale')}")
+    if not events:
+        print("  当前无在赛（注意：drop 流里仍可能有该运动的降赔，说明 live 商店未收录 = 拉不到 state）")
+        return
+    for e in events[: a.limit]:
+        p0 = (e.get("periods") or {}).get("num_0", {})
+        meta = p0.get("meta") or {}
+        clock = ""
+        if e.get("quarter"):
+            clock = f" 第{e['quarter']}节 {e.get('time_remaining_in_qtr') or ''}"
+        print(f"\n  [{e.get('event_id')}] {e.get('league_name')}")
+        print(f"    {e.get('home')} vs {e.get('away')}{clock}  live_status_id={e.get('live_status_id')}")
+        print(f"    赛况  {_score_brief(e.get('state'), a.sport)}")
+        print(f"    盘口  periods={len(e.get('periods') or {})} 个 period | p0 meta: 比分字段 "
+              f"{meta.get('home_score')}:{meta.get('away_score')} max_total={meta.get('max_total')}")
+
+
 def cmd_sse(_: argparse.Namespace) -> None:
     url = f"{BASE}/odds-drop?key={api_key()}&min_drop=5"
     req = urllib.request.Request(url, headers={"Accept": "text/event-stream", "User-Agent": UA})
@@ -158,6 +205,11 @@ def main() -> None:
 
     sub.add_parser("me").set_defaults(fn=cmd_me)
     sub.add_parser("sse").set_defaults(fn=cmd_sse)
+
+    lv = sub.add_parser("live", help="在赛赛事 + 实时赛况（比分/节次/盘分/发球权）")
+    lv.add_argument("sport", type=int, nargs="?", default=3, help="默认 3=篮球；2=网球 1=足球")
+    lv.add_argument("limit", type=int, nargs="?", default=5)
+    lv.set_defaults(fn=cmd_live)
 
     m = sub.add_parser("markets")
     m.add_argument("sport", type=int, help="1足球 2网球 3篮球 4冰球 5美式 6棒球 11电竞")
