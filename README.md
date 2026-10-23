@@ -18,9 +18,36 @@
 .
 ├── index.html                     # 调研报告（单页，带目录与阅读进度）
 ├── report.md                      # 报告 Markdown 源
+├── scripts/pinnapi_probe.py       # PinnAPI 探测工具（验证套餐 / 拉快照 / 扫 drops edge）
+├── .env.example                   # 凭据模板（复制为 .env 后填 key，.env 不入库）
 ├── docs/screenshots/              # 原始调研截图（Gemini 对话）
 └── README.md
 ```
+
+## 快速开始（已验证可用）
+
+```bash
+cp .env.example .env          # 填入 PINNAPI_KEY
+python scripts/pinnapi_probe.py me                 # 套餐、限额、今日用量
+python scripts/pinnapi_probe.py markets 1 prematch # 足球赛前快照（1足球 2网球 3篮球 11电竞）
+python scripts/pinnapi_probe.py drops --min-drop 8 --min-ev 0.05   # 扫可下手的降赔
+python scripts/pinnapi_probe.py sse                # 探测 SSE 权限
+```
+
+仅用 Python 标准库，无需 pip install。Trial 档额度 100 请求/天、20/分钟，脚本每次调用算 1 次。
+
+### 实测发现：EV 口径的坑
+
+文档示例写 `EV = to_price / nvp - 1`，但把平博**自己**的新价代入后**恒为负**（300 条样本中位数 −6.0%，无一条为正）——因为 `to` 本身就是含水的庄家价，这个式子只是在量水位，量不出 edge。
+
+可用的两种口径：
+
+| 口径 | 300 条样本中位数 | 含义 |
+|---|---|---|
+| `from / nvp - 1` | **+3.2%**（80% 为正） | 软庄还没跟上、仍挂旧价时的理论 edge，可作信号排序依据 |
+| `软庄实际挂价 / nvp - 1` | — | 唯一真实的 edge，但需要第二个（软庄）数据源 |
+
+结论：**PinnAPI 的 `nvp` 是公允锚点，不是收益来源**。单靠它只能算「平博动了多少」，要算「我能赚多少」必须有软庄价格。
 
 ## 报告包含
 
