@@ -2,8 +2,25 @@
 
 体育博彩赔率数据的获取路径、成本结构，以及一套「赔率变动 → 信号过滤 → EV/Kelly → 一键下单」扫货系统的架构建议。
 
+> **当前版本 `v0.1.0`** · 阶段：**调研收口，暂停开发**（2026-10-23）
+> 已产出：选型报告 + 可用的 PinnAPI 探测工具 + 一批实测结论（含两个推翻文档口径的发现）。尚未写 MVP 主程序。
+
 👉 **在线阅读：[https://elevenzhou.github.io/ai-dashui/](https://elevenzhou.github.io/ai-dashui/)**（GitHub Pages）
 👉 本地版：**[index.html](./index.html)**（浏览器直接打开，支持打印 / 导出 PDF）
+
+## 项目状态
+
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| 数据源选型调研 | ✅ 完成 | 见 `report.md` / `index.html` |
+| GitHub 开源项目清单 | ✅ 完成 | 14 个项目，分三类 |
+| 扫货系统六层架构设计 | ✅ 完成 | 接入 → 信号 → 决策 → 执行 → 数据 → 风控 |
+| PinnAPI 接入验证 | ✅ 完成 | trial key 实测，`scripts/pinnapi_probe.py` 可用 |
+| EV 口径校准 | ✅ 完成 | 推翻文档公式，见下方「EV 口径的坑」 |
+| 赛事数据/赛况能力盘点 | ✅ 完成 | 有赛程与实时比分，无历史/统计/阵容 |
+| **MVP 主程序** | ⬜ 未开始 | SSE 消费者 → 信号 → 通知，待续 |
+| **软庄数据源** | ⬜ 未开始 | 没有它算不出真实 edge（关键缺口） |
+| **通知 / 自动下单 / 回测** | ⬜ 未开始 | 依赖前两项 |
 
 ## 结论速览
 
@@ -79,6 +96,27 @@ python scripts/pinnapi_probe.py sse                # 探测 SSE 权限
 3. **扫货架构设计** — 接入 / 信号 / 决策 / 执行 / 数据 / 风控六层，含 MVP 方案
 4. **GitHub 开源项目** — 14 个可直接参考的实现，分套利系统 / 监控告警 / 下单 SDK 三类
 5. **落地路线** — 三步走，每步可回退
+
+## 下一步（续做时从这里开始）
+
+按依赖顺序，前两步不做完，后面的都没有意义：
+
+1. **补一个软庄数据源**（关键缺口）。`nvp` 只能给公允锚点，真实 edge 需要软庄实际挂价。候选：OddsPapi / The Odds API（跨平台聚合），或直接抓某个软庄页面。**没有这一步，「EV 决策层」无法落地。**
+2. **确认足球 live 异常**：发邮件 `info@pinnapi.com` 问 `sport_id=1&event_type=live` 为何返回 0 场（详见下方异常记录）。足球是降赔量最大的项目，赛况缺失会让信号过滤少一个维度。
+3. **升到 Drops 档（$99/月）**开 SSE。trial 的 100 请求/天扛不住轮询，只能做验证不能做生产。
+4. **写 MVP 主程序**：SSE 消费 → 去重冷却 → `from/nvp` 排序 → Telegram 深链接 → SQLite 快照（约 300–500 行）。
+5. 可选：`/kit/v1/details` 回查 `state`，做「进球降赔 vs 资金面降赔」二次过滤。
+
+## 变更记录
+
+### v0.1.0 — 2026-10-23（调研收口版）
+- 新增 `report.md` + `index.html` 双版调研报告（含六层架构 SVG、目录导航、阅读进度、打印样式）
+- 新增 `scripts/pinnapi_probe.py`：`me` / `markets` / `live` / `drops` / `sse` 五个子命令，仅标准库
+- 归档 6 张原始调研截图到 `docs/screenshots/`
+- GitHub Pages 上线：https://elevenzhou.github.io/ai-dashui/
+- **实测推翻文档口径**：`EV = to/nvp - 1` 恒为负（中位数 −6.0%，0 条为正），正确信号是 `from/nvp - 1`（+3.2%）
+- **实测盘点赛况能力**：`state` 仅 REST 有、drop 流无；足球 live 在 markets 返回 0 场（未解）
+- 完成 trial key 接入验证（100 请求/天，`features.sse=false`）
 
 ## 合规提示
 
